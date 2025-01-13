@@ -1,0 +1,7 @@
+numpy
+pandas
+scikit-multilearn
+liac-arff
+scipy
+requests
+scikit-learn
