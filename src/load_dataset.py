@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import time
 from skmultilearn.dataset import load_from_arff
-from sklearn.model_selection import train_test_split
 
 def load_arff_data(filename, q, sparse, to_array=True):
     '''
