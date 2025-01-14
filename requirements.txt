@@ -5,3 +5,4 @@ liac-arff
 scipy
 requests
 scikit-learn
+matplotlib
