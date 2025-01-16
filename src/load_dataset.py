@@ -4,7 +4,7 @@ import pandas as pd
 import time
 from skmultilearn.dataset import load_from_arff
 
-def load_arff_data(filename, q, sparse, to_array=True):
+def load_arff_data(filename, q, sparse, to_array=True, return_labels_and_features = False):
     '''
     Carga un archivo ARFF multietiqueta y devuelve las características (X) y etiquetas (y).
 
@@ -30,11 +30,12 @@ def load_arff_data(filename, q, sparse, to_array=True):
     --------
     X, y = load_arff_data('datasets/Birds/birds-train.arff', q=19, sparse=False)
     '''
-    X, y = load_from_arff(
+    X, y, features, labels = load_from_arff(
         filename,
         label_count=q,
         label_location='end',
-        load_sparse=sparse
+        load_sparse=sparse,
+        return_attribute_definitions=True
     )
 
     if to_array:
@@ -47,11 +48,20 @@ Dataset Multietiqueta Cargado Exitosamente
        Archivo: {filename}                                       
        Instancias: {X.shape[0]}                                   
        Características: {X.shape[1]}                             
-       Etiquetas: {y.shape[1]}                                    
+       Numero de etiquetas: {y.shape[1]}                                    
     """)
 
-    return X, y
+    
+    
+    if return_labels_and_features:
+        return X, y, features, labels
+    else:
+        return X, y
 
+def load_csv(filename, columns):
+    """Load specified columns from a CSV file and return as a NumPy array."""
+    data = pd.read_csv(filename)
+    return np.array(data.loc[:, columns])
 
 
 

@@ -1,12 +1,6 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-def load_csv(filename, columns):
-    """Load specified columns from a CSV file and return as a NumPy array."""
-    data = pd.read_csv(filename)
-    return np.array(data.loc[:, columns])
 
 def initialize_membership_matrix(data_size, K):
     """Initialize the membership matrix with random values normalized to sum to 1 for each data point."""
@@ -49,8 +43,4 @@ def plot_clusters(data, labels):
     plt.ylabel('Longitude')
     plt.show()
 
-# Example usage
-filename = 'datasets\Housing\housing.csv'
-data = load_csv(filename, ['latitude', 'longitude'])
-labels, centroids, U = fuzzy_c_means(data)
-plot_clusters(data, labels)
+
