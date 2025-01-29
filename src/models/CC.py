@@ -1,7 +1,7 @@
 from sklearn.linear_model import LogisticRegression
 from sklearn.multioutput import ClassifierChain
 import numpy as np
-from preprocess import scale_data
+from utils.preprocessing import scale_data
 
 
 def train_CC(X_train, y_train, X_test, order="random", random_state=None):

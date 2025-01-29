@@ -1,6 +1,6 @@
-from LCC_MLC import *
-from CC import train_CC, train_ECC
-from preprocess import load_csv_and_train_test_split
+from models.LCC_MLC import *
+from models.CC import train_CC, train_ECC
+from utils.preprocessing import load_csv_and_train_test_split
 
 
 ## Clasifier Chain ###########################################################################################################################################################################################

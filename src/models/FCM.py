@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 def initialize_membership_matrix(data_size, K):
     """Initialize the membership matrix with random values normalized to sum to 1 for each data point."""
@@ -36,11 +35,5 @@ def fuzzy_c_means(data, K=5, m=3, max_iterations=100, tol=1e-5):
     labels = np.argmax(U, axis=1)
     return labels, centroids, U
 
-def plot_clusters(data, labels):
-    """Plot the clustered data points with different colors based on labels."""
-    sns.scatterplot(x=data[:, 0], y=data[:, 1], hue=labels, palette='nipy_spectral')
-    plt.xlabel('Latitude')
-    plt.ylabel('Longitude')
-    plt.show()
 
 
