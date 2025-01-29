@@ -1,0 +1,153 @@
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.multioutput import MultiOutputClassifier
+from jaccard import compute_jaccard_index
+from preprocess import load_arff_data
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
+import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score
+
+## PREPROCESSING ##############################################################################################################################################################################################
+
+def load_and_preprocess_data(file_path, num_labels, sparse):
+    """Loads and preprocesses the multi-label dataset."""
+
+    X, Y, features, labels = load_arff_data(
+        filename=file_path,
+        q=num_labels,
+        sparse=sparse,
+        return_labels_and_features=True
+    )
+    label_names = [label[0] for label in labels]
+
+    return X, Y, features, label_names
+
+## LABELS SIMILARITY ##############################################################################################################################################################################################
+
+def compute_similarity_matrix(Y):
+    """Computes the label similarity matrix using the Jaccard index."""
+
+    num_labels = Y.shape[1]
+    similarity_matrix = np.zeros((num_labels, num_labels))
+
+    for i in range(num_labels):
+        for j in range(num_labels):
+
+            similarity_matrix[i, j] = compute_jaccard_index(Y[:, i], Y[:, j])
+
+    return similarity_matrix
+
+def convert_to_dissimilarity_matrix(similarity_matrix):
+    """Converts the similarity matrix into a dissimilarity matrix."""
+
+    return 1 - similarity_matrix
+
+## LABEL CLUSTER ##############################################################################################################################################################################################
+
+def hierarchical_clustering(dissimilarity_matrix, method='ward'):
+    """Performs hierarchical clustering using the Ward method."""
+
+    compressed_distances = dissimilarity_matrix[np.triu_indices_from(dissimilarity_matrix, k=1)]
+    linkage_matrix = linkage(compressed_distances, method=method)
+    return linkage_matrix
+
+def plot_dendrogram(linkage_matrix, labels):
+    """Plots the hierarchical clustering dendrogram."""
+    plt.figure(figsize=(10, 10))
+    dendrogram(linkage_matrix, labels=labels, leaf_rotation=90, leaf_font_size=10)
+    plt.title("Dendrogram")
+    plt.xlabel("Labels")
+    plt.ylabel("Distance")
+    plt.tight_layout()
+    plt.show()
+
+def select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters, label_names):
+    """Selects the optimal label clustering partition based on silhouette score."""
+
+    best_score = -1
+    best_partition = None
+    best_num_clusters = 0
+
+    for num_clusters in range(2, max_clusters + 1):
+
+        partition = fcluster(linkage_matrix, num_clusters, criterion='maxclust')
+        score = silhouette_score(dissimilarity_matrix, partition, metric="precomputed")
+
+        if score > best_score:
+            best_score = score
+            best_partition = partition
+            best_num_clusters = num_clusters
+    
+    for label, cluster in zip(label_names, best_partition):
+        print(f"{label} -> Cluster {cluster}")
+
+    return best_partition
+
+## LABEL CLUSTER CHAIN ##############################################################################################################################################################################################
+
+def train_classifiers_per_cluster(X_train, Y_train, best_partition):
+    """Trains multi-label classifiers for each label cluster."""
+
+    models = []
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_train_enhanced = X_train.copy()
+
+    for cluster_id in np.unique(best_partition):
+        print(f"\nTraining classifier for cluster {cluster_id}...")
+        indices_cluster = np.where(best_partition == cluster_id)[0]
+        Y_train_cluster = Y_train[:, indices_cluster]
+        base_model = LogisticRegression(max_iter=1000)
+        cluster_model = MultiOutputClassifier(base_model)
+        cluster_model.fit(X_train_enhanced, Y_train_cluster)
+        Y_pred_cluster = cluster_model.predict(X_train_enhanced)
+        X_train_enhanced = np.hstack((X_train_enhanced, Y_pred_cluster))
+        models.append(cluster_model)
+
+    return models
+
+def predict_and_combine(models, X_test, best_partition, num_labels):
+    """Performs prediction using trained cluster models and combines the results."""
+
+    Y_pred_final = np.zeros((X_test.shape[0], num_labels))
+
+    for cluster_id, model in enumerate(models):
+
+        print(f"Making predictions for cluster {cluster_id + 1}...")
+        indices_cluster = np.where(best_partition == cluster_id + 1)[0]
+        Y_pred_cluster = model.predict(X_test)
+        Y_pred_final[:, indices_cluster] = Y_pred_cluster
+
+    return Y_pred_final
+
+## LABEL CLUSTER CHAIN FOR MULTILABEL CLASSIFICATION ##############################################################################################################################################################################################
+
+def LCC_MLC(file_path, num_labels, sparse=False, max_clusters=10):
+    """
+    Implements the Label Cluster Chains for Multi-Label Classification (LCC-MLC) method.
+    
+    Steps:
+    1. Load and preprocess the dataset.
+    2. Compute label similarity and dissimilarity matrices.
+    3. Perform hierarchical clustering to identify label clusters.
+    4. Select the best partition using silhouette score.
+    5. Train multi-label classifiers for each label cluster.
+    6. Predict using trained models and combine predictions.
+    
+    Returns:
+    - Final predicted labels for the dataset.
+    """
+
+    X, Y, features, label_names = load_and_preprocess_data(file_path, num_labels, sparse)
+    similarity_matrix = compute_similarity_matrix(Y)
+    dissimilarity_matrix = convert_to_dissimilarity_matrix(similarity_matrix)
+    linkage_matrix = hierarchical_clustering(dissimilarity_matrix)
+    plot_dendrogram(linkage_matrix, labels=label_names)
+    best_partition = select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters, label_names)
+    models = train_classifiers_per_cluster(X, Y, best_partition)
+    Y_pred_final = predict_and_combine(models, X, best_partition, num_labels)
+
+    print("Final predictions for all instances:")
+    print(Y_pred_final)
+    return Y_pred_final

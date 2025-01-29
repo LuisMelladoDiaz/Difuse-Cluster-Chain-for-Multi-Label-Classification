@@ -1,4 +1,4 @@
-from LLC_MLC import *
+from LCC_MLC import *
 from CC import train_CC, train_ECC
 from preprocess import load_csv_and_train_test_split
 

@@ -15,7 +15,7 @@ def compute_jaccard_similarity(y_true, y_pred):
     """
     return jaccard_score(y_true, y_pred, average="samples", zero_division=0)
 
-def compute_pairwise_jaccard(y_vector_1, y_vector_2):
+def compute_jaccard_index(y_vector_1, y_vector_2):
     """
     Compute the Jaccard similarity index between two binary label vectors.
 
