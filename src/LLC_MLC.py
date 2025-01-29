@@ -1,12 +1,11 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
-from load_dataset import load_arff_data
+from preprocess import load_arff_data
 import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
 import matplotlib.pyplot as plt
 from sklearn.metrics import silhouette_score
-from classifier_chain import scale_data
 
 
 # Clustering de Etiquetas en un Dataset Multietiqueta
@@ -33,10 +32,7 @@ def preprocesar_datos(archivo, num_etiquetas, disperso):
 #     - Calcular la intersección y la unión de ocurrencias de etiquetas.
 #     - Almacenar el valor de similitud en una matriz.
 
-def indice_jaccard(y_i, y_j):
-    intersección = np.sum((y_i == 1) & (y_j == 1))
-    unión = np.sum((y_i == 1) | (y_j == 1))
-    return intersección / unión if unión > 0 else 0.0
+
 
 def construir_matriz_similitud(y):
     num_etiquetas = y.shape[1]
@@ -66,6 +62,8 @@ def realizar_clustering_jerarquico(matriz_disimilitud, n_clusters, metodo='ward'
     etiquetas_clúster = fcluster(matriz_enlace, n_clusters, criterion='maxclust')
     
     return etiquetas_clúster, matriz_enlace
+
+# def realizar_clustering_difuso()
 
 def dibujar_dendrograma(matriz_enlace, etiquetas):
     plt.figure(figsize=(10, 10))
@@ -114,6 +112,7 @@ def entrenar_clasificadores_por_cluster(X_train, y_train, mejor_particion, nombr
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
 
+    #tener en cuenta la prediccion del modelo anterior
     for cluster_id in np.unique(mejor_particion):
         print(f"\nEntrenando para el clúster {cluster_id}...")
         
