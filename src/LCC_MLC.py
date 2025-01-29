@@ -15,7 +15,7 @@ def load_and_preprocess_data(file_path, num_labels, sparse):
 
     X, Y, features, labels = load_arff_data(
         filename=file_path,
-        q=num_labels,
+        label_count=num_labels,
         sparse=sparse,
         return_labels_and_features=True
     )
@@ -108,18 +108,21 @@ def train_classifiers_per_cluster(X_train, Y_train, best_partition):
     return models
 
 def predict_and_combine(models, X_test, best_partition, num_labels):
-    """Performs prediction using trained cluster models and combines the results."""
+    """Performs prediction using trained cluster models and propagates predictions as new features."""
 
     Y_pred_final = np.zeros((X_test.shape[0], num_labels))
+    X_test_enhanced = X_test.copy()
 
     for cluster_id, model in enumerate(models):
-
         print(f"Making predictions for cluster {cluster_id + 1}...")
+
         indices_cluster = np.where(best_partition == cluster_id + 1)[0]
-        Y_pred_cluster = model.predict(X_test)
+        Y_pred_cluster = model.predict(X_test_enhanced)
+        X_test_enhanced = np.hstack((X_test_enhanced, Y_pred_cluster))
         Y_pred_final[:, indices_cluster] = Y_pred_cluster
 
     return Y_pred_final
+
 
 ## LABEL CLUSTER CHAIN FOR MULTILABEL CLASSIFICATION ##############################################################################################################################################################################################
 
