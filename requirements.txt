@@ -6,3 +6,4 @@ scipy
 requests
 scikit-learn
 matplotlib
+scikit-fuzzy
