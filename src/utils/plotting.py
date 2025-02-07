@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import dendrogram
 import seaborn as sns
 import numpy as np
+from sklearn.metrics import roc_curve, auc
+
 
 
 def plot_dendrogram(linkage_matrix, labels):
@@ -49,3 +51,20 @@ def plot_jaccard_scores_ECC(chain_jaccard_scores, ensemble_jaccard_score, num_ch
     ax.bar(x_pos, model_scores, alpha=0.5, color=colors)
     plt.tight_layout()
     plt.show()
+
+def plot_roc_curve(y_true, y_probs):
+    """Plots the ROC curve for a binary classifier with probabilistic outputs."""
+    
+    fpr, tpr, _ = roc_curve(y_true, y_probs)
+    auc_score = auc(fpr, tpr)
+    
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color='blue', label=f"AUC = {auc_score:.2f}")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.legend()
+    plt.show()
+    
+    return auc_score
