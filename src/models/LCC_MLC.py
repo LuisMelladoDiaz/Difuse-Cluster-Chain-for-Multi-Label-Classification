@@ -1,12 +1,13 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
-from utils.jaccard import compute_jaccard_index
 from utils.plotting import plot_dendrogram
 from utils.preprocessing import load_arff_data
 import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics import silhouette_score
+
+from utils.similarity import compute_similarity_matrix, convert_to_dissimilarity_matrix
 
 ## PREPROCESSING ##############################################################################################################################################################################################
 
@@ -22,26 +23,6 @@ def load_and_preprocess_data(file_path, num_labels, sparse):
     label_names = [label[0] for label in labels]
 
     return X, Y, features, label_names
-
-## LABELS SIMILARITY ##############################################################################################################################################################################################
-
-def compute_similarity_matrix(Y):
-    """Computes the label similarity matrix using the Jaccard index."""
-
-    num_labels = Y.shape[1]
-    similarity_matrix = np.zeros((num_labels, num_labels))
-
-    for i in range(num_labels):
-        for j in range(num_labels):
-
-            similarity_matrix[i, j] = compute_jaccard_index(Y[:, i], Y[:, j])
-
-    return similarity_matrix
-
-def convert_to_dissimilarity_matrix(similarity_matrix):
-    """Converts the similarity matrix into a dissimilarity matrix."""
-
-    return 1 - similarity_matrix
 
 ## LABEL CLUSTER ##############################################################################################################################################################################################
 
