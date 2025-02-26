@@ -30,3 +30,9 @@ def compute_jaccard_index(y_vector_1, y_vector_2):
     union = np.sum((y_vector_1 == 1) | (y_vector_2 == 1))
     return intersection / union if union > 0 else 0.0
 
+def compute_jaccard_distance(y1, y2):
+    """Calcula la distancia Jaccard entre dos vectores binarios."""
+    intersection = np.sum(np.logical_and(y1, y2))
+    union = np.sum(np.logical_or(y1, y2))
+    return 1 - (intersection / union)
+

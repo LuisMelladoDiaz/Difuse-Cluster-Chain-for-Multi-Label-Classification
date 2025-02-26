@@ -1,95 +1,122 @@
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.multioutput import MultiOutputClassifier
-from utils.preprocessing import load_arff_data
 import skfuzzy as fuzz
-from utils.similarity import compute_similarity_matrix
+from utils.preprocessing import load_multilabel_dataset
+import random
+from sklearn.multioutput import ClassifierChain
+from sklearn.ensemble import RandomForestClassifier
+from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
+from utils.similarity import compute_label_similarity_matrix
 
-def fuzzy_clustering(similarity_matrix, num_clusters, threshold=0.3):
-    """
-    Performs fuzzy clustering using scikit-fuzzy (skfuzzy) and assigns labels to clusters based on membership probabilities.
-    Labels can belong to multiple clusters if their membership value is above a given threshold.
-    """
-    cntr, u, _, _, _, _, _ = fuzz.cluster.cmeans(similarity_matrix, num_clusters, 2, error=0.005, maxiter=1000)
-    membership_matrix = u.T  # Transpose to align labels with clusters
-    
-    cluster_assignments = {}
-    for label_idx, memberships in enumerate(membership_matrix):
-        assigned_clusters = np.where(memberships > threshold)[0]  # Assign labels to clusters where they have significant membership
-        cluster_assignments[label_idx] = assigned_clusters.tolist()
-    
-    return cluster_assignments, membership_matrix
 
-def train_classifiers_per_cluster(X_train, Y_train, cluster_assignments):
-    """
-    Trains multi-label classifiers for each label cluster using fuzzy memberships.
-    """
-    models = {}
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_train_enhanced = X_train.copy()
+## FUZZY CLUSTERING ###################################################################################################
+
+def apply_fuzzy_cmeans(similarity_matrix, num_clusters):
+
+    """Aplica el algoritmo Fuzzy C-Means sobre la matriz de distancias."""
     
-    for cluster_id, labels in cluster_assignments.items():
-        if not labels:
+    print("Applying Fuzzy c-means over labels...")
+
+    max_distance = np.max(similarity_matrix)
+    normalized_similarity_matrix = 1 - (similarity_matrix / max_distance)
+    
+    cntr, u, _, _, _, _, _ = fuzz.cmeans(normalized_similarity_matrix, num_clusters, 1.2, error=0.005, maxiter=1000)
+    membership_matrix = u.T
+    
+    print(f"Fuzzy clustering completed. Membership matrix shape: {membership_matrix.shape}")
+    print(membership_matrix)
+    
+    return membership_matrix # Matriz etiquetas x clusters
+
+
+def clean_membership_matrix(membership_matrix, threshold=0.1):
+    """Aplica un umbral sobre la matriz de pertenencia y normaliza las filas para que sumen 1."""
+    
+    membership_matrix[membership_matrix < threshold] = 0
+    
+    row_sums = np.sum(membership_matrix, axis=1, keepdims=True)
+    normalized_membership_matrix = membership_matrix / row_sums
+    
+    print("Cleaned and normalized membership matrix:")
+    print(normalized_membership_matrix)
+    
+    return normalized_membership_matrix
+
+## ORDER CLUSTERS ################################################################################################
+def order_clusters(num_clusters):
+    """Devuelve un orden aleatorio de los clusters."""
+    order = list(range(num_clusters))
+    random.shuffle(order)
+    print(f"Cluster order: {order}")
+    return order
+
+## LABEL CLUSTER CHAIN ################################################################################################
+def train_fuzzy_classifiers(X_train, Y_train, membership_matrix):
+    """Entrena un clasificador por cada cluster usando las asignaciones difusas en el orden aleatorio."""
+    num_clusters = membership_matrix.shape[1]
+    models = []
+    cluster_order = order_clusters(num_clusters)
+    
+    for cluster_idx in cluster_order:
+        cluster_weights = membership_matrix[:, cluster_idx]  # Pertenencia de cada etiqueta al cluster
+        selected_labels = cluster_weights > 0  # Etiquetas con pertenencia significativa
+        
+        if np.sum(selected_labels) == 0:
+            models.append(None)
             continue
         
-        Y_train_cluster = Y_train[:, labels]
-        base_model = LogisticRegression(max_iter=1000)
-        cluster_model = MultiOutputClassifier(base_model)
-        cluster_model.fit(X_train_enhanced, Y_train_cluster)
-        Y_pred_cluster = cluster_model.predict(X_train_enhanced)
-        X_train_enhanced = np.hstack((X_train_enhanced, Y_pred_cluster))
-        models[cluster_id] = cluster_model
+        Y_cluster = Y_train[:, selected_labels]  # Subconjunto de etiquetas
+        model = ClassifierChain(RandomForestClassifier(n_estimators=100))
+        model.fit(X_train, Y_cluster)
+        models.append((model, selected_labels))
     
     return models
 
-def predict_and_combine(models, X_test, cluster_assignments, membership_matrix, num_labels):
-    """
-    Performs prediction using trained cluster models and combines results using fuzzy weights.
-    Since labels may belong to multiple clusters, predictions are aggregated using a weighted average.
-    """
-    Y_pred_final = np.zeros((X_test.shape[0], num_labels))
-    X_test_enhanced = X_test.copy()
+def predict_fuzzy(models, X_test, membership_matrix, num_labels):
+    """Realiza predicciones y combina los resultados ponderando por la pertenencia a cada cluster."""
+    num_clusters = len(models)
+    predictions = np.zeros((X_test.shape[0], num_labels))
+    weights = np.zeros((X_test.shape[0], num_labels))
     
-    cluster_predictions = {}
-    for cluster_id, model in models.items():
-        labels = cluster_assignments.get(cluster_id, [])
-        if not labels:
+    for cluster_idx in range(num_clusters):
+        model, selected_labels = models[cluster_idx]
+        if model is None:
             continue
         
-        Y_pred_cluster = model.predict(X_test_enhanced)
-        X_test_enhanced = np.hstack((X_test_enhanced, Y_pred_cluster))
+        Y_pred = model.predict(X_test)  # Predicciones del cluster ¿PREDICT PROBA??
+        cluster_weights = membership_matrix[:, cluster_idx][selected_labels]  # Ponderaciones de pertenencia
         
-        # Store predictions per label with their membership weight
-        for i, label in enumerate(labels):
-            if label not in cluster_predictions:
-                cluster_predictions[label] = []
-            cluster_predictions[label].append((Y_pred_cluster[:, i], membership_matrix[label, cluster_id]))
+        predictions[:, selected_labels] += Y_pred * cluster_weights
+        weights[:, selected_labels] += cluster_weights
     
-    # Aggregate predictions using membership-based weighted average
-    for label, predictions in cluster_predictions.items():
-        weighted_sum = sum(pred * weight for pred, weight in predictions)
-        total_weight = sum(weight for _, weight in predictions)
-        Y_pred_final[:, label] = weighted_sum / total_weight if total_weight > 0 else 0
+    final_predictions = predictions / np.maximum(weights, 1e-6)
     
+    return (final_predictions > 0.5).astype(int)  # Binarización final
+
+## Fuzzy_LCC_MLC ################################################################################################
+
+def Fuzzy_LCC_MLC(file_path, num_labels, sparse=False, num_clusters=3):
+    """Implementación de Label Cluster Chains con Clustering Difuso."""
+
+    print("Starting Fuzzy LCC-MLC...")
+
+    # Cargar y preprocesar datos
+    X, Y, features, label_names = load_multilabel_dataset(file_path, num_labels, sparse)
+
+    # Computar matriz de similitud y aplicar clustering difuso
+    similarity_matrix = compute_label_similarity_matrix(Y)
+    membership_matrix = clean_membership_matrix(apply_fuzzy_cmeans(similarity_matrix, num_clusters))
+
+    # Entrenar clasificadores
+    models = train_fuzzy_classifiers(X, Y, membership_matrix)
+
+    # Realizar predicciones
+    Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels)
+
+    print("Final predictions for all instances:")
+    np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+    print(Y_pred_final)
+
+    evaluate_multilabel_classification(Y, Y_pred_final)
+
     return Y_pred_final
 
-def LCC_MLC_Fuzzy(file_path, num_labels, sparse=False, num_clusters=10, threshold=0.3):
-    """
-    Implements the fuzzy Label Cluster Chains for Multi-Label Classification (LCC-MLC) method.
-    Steps:
-    1. Compute similarity matrix for labels.
-    2. Apply fuzzy clustering to group labels into overlapping clusters.
-    3. Train classifiers per cluster and propagate predictions.
-    4. Combine multiple predictions for labels using membership-based weighting.
-    """
-    X, Y, features, label_names = load_arff_data(file_path, num_labels, sparse, return_labels_and_features=True)
-    similarity_matrix = compute_similarity_matrix(Y)
-    cluster_assignments, membership_matrix = fuzzy_clustering(similarity_matrix, num_clusters, threshold)
-    models = train_classifiers_per_cluster(X, Y, cluster_assignments)
-    Y_pred_final = predict_and_combine(models, X, cluster_assignments, membership_matrix, num_labels)
-    
-    print("Final fuzzy predictions for all instances:")
-    print(Y_pred_final)
-    return Y_pred_final
