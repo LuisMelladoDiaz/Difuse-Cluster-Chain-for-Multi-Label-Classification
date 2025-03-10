@@ -11,8 +11,6 @@ def compute_label_similarity_matrix(Y):
         for j in range(num_labels):
             similarity_matrix[i, j] = compute_jaccard_distance(Y[:, i], Y[:, j])
     
-    print("Matriz Distancia:")
-    print(similarity_matrix.shape)
     return similarity_matrix
 
 def convert_to_dissimilarity_matrix(similarity_matrix):

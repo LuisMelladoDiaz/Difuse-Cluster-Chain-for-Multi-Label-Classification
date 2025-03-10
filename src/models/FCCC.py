@@ -27,8 +27,6 @@ def apply_fuzzy_cmeans(similarity_matrix, num_clusters, seed=None):
     cntr, u, _, _, _, _, _ = fuzz.cmeans(normalized_similarity_matrix, num_clusters, 1.2, error=0.005, maxiter=1000, seed=seed)
     membership_matrix = u.T
     
-    print(f"Fuzzy clustering completed. Membership matrix shape: {membership_matrix.shape}")
-    print(membership_matrix)
     
     return membership_matrix # Matriz etiquetas x clusters
 
@@ -41,9 +39,6 @@ def clean_membership_matrix(membership_matrix, threshold=0.1):
     row_sums = np.sum(membership_matrix, axis=1, keepdims=True)
     normalized_membership_matrix = membership_matrix / row_sums
     
-    print("Cleaned and normalized membership matrix:")
-    print(normalized_membership_matrix)
-    
     return normalized_membership_matrix
 
 
@@ -55,7 +50,6 @@ def order_clusters(num_clusters, seed=None):
     if seed is not None:
         random.seed(seed)
     random.shuffle(order)
-    print(f"Cluster order: {order}")
     return order
 
 
@@ -129,9 +123,6 @@ def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None, experim
 
     # Realizar predicciones
     Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels, seed)
-
-    print("Final predictions for all instances:")
-    print(Y_pred_final)
 
     # Evaluación de las predicciones
     evaluation_metrics = run_evaluation_and_save_results(Y, Y_pred_final, experiment_name)
