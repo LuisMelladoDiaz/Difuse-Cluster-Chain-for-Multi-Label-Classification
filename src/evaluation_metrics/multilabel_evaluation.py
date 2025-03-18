@@ -18,8 +18,8 @@ def evaluate_multilabel_classification(y_true, y_pred):
         "F1-Score (Samples)": f1_score(y_true, y_pred, average="samples", zero_division=0)
     }
     
-    for metric, value in metrics.items():
-        print(f"{metric}: {value:.4f}")
+    #for metric, value in metrics.items():
+        #print(f"{metric}: {value:.4f}")
     
     return metrics
 
@@ -49,7 +49,7 @@ def save_results_to_csv(metrics, y_pred, output_file):
         for row in y_pred:
             writer.writerow(row)
         
-    print(f"Results saved to {output_file}")
+    #print(f"Results saved to {output_file}")
 
 def run_evaluation_and_save_results(y_true, y_pred, output_file):
     metrics = evaluate_multilabel_classification(y_true, y_pred)

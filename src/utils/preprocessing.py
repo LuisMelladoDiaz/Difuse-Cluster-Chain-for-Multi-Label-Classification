@@ -24,7 +24,7 @@ def load_csv_and_train_test_split(file):
     return X_train, X_test, y_train, y_test
 
 
-def load_arff_data(filename, label_count, sparse, to_array=True, return_labels_and_features=False):
+def load_arff_data(filename, label_count, sparse, to_array=True, return_labels_and_features=False, debug = False):
     """
     Load a multi-label ARFF file and return the features (X) and labels (y).
 
@@ -52,13 +52,15 @@ def load_arff_data(filename, label_count, sparse, to_array=True, return_labels_a
         X = X.toarray()
         y = y.toarray()
 
-    print(f"""
-        Multi-label Dataset Successfully Loaded
-        File: {filename}
-        Instances: {X.shape[0]}
-        Features: {X.shape[1]}
-        Number of Labels: {y.shape[1]}
-    """)
+    if debug:    
+
+        print(f"""
+            Multi-label Dataset Successfully Loaded
+            File: {filename}
+            Instances: {X.shape[0]}
+            Features: {X.shape[1]}
+            Number of Labels: {y.shape[1]}
+        """)
 
     if return_labels_and_features:
         return X, y, features, labels
@@ -66,7 +68,7 @@ def load_arff_data(filename, label_count, sparse, to_array=True, return_labels_a
         return X, y
     
 def load_multilabel_dataset(file_path, num_labels, sparse):
-    print("Loading and preprocessing data...")
+    #print("Loading and preprocessing data...")
     
     X, Y, features, labels = load_arff_data(file_path, num_labels, sparse, return_labels_and_features=True)
     return X, Y, features, [label[0] for label in labels]

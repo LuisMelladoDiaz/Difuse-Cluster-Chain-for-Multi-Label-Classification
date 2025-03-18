@@ -15,7 +15,7 @@ import csv
 def apply_fuzzy_cmeans(similarity_matrix, num_clusters, seed=None):
     """Aplica el algoritmo Fuzzy C-Means sobre la matriz de distancias."""
     
-    print("Applying Fuzzy c-means over labels...")
+    #print("Applying Fuzzy c-means over labels...")
 
     if seed is not None:
         np.random.seed(seed)
@@ -104,7 +104,7 @@ def predict_fuzzy(models, X_test, membership_matrix, num_labels, seed=None):
 def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None, experiment_name = "experimentos/FCCC/results.csv"):
     """Implementación de Label Cluster Chains con Clustering Difuso."""
 
-    print("Starting Fuzzy LCC-MLC...")
+    #print("Starting Fuzzy LCC-MLC...")
 
     # Fijar la semilla
     if seed is not None:

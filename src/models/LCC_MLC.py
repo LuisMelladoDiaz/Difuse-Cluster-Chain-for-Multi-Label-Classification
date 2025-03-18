@@ -1,28 +1,14 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
+from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
 from utils.plotting import plot_dendrogram
-from utils.preprocessing import load_arff_data
 import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics import silhouette_score
+from utils.preprocessing import load_multilabel_dataset
+from utils.similarity import compute_label_similarity_matrix, convert_to_dissimilarity_matrix
 
-from utils.similarity import compute_similarity_matrix, convert_to_dissimilarity_matrix
-
-## PREPROCESSING ##############################################################################################################################################################################################
-
-def load_and_preprocess_data(file_path, num_labels, sparse):
-    """Loads and preprocesses the multi-label dataset."""
-
-    X, Y, features, labels = load_arff_data(
-        filename=file_path,
-        label_count=num_labels,
-        sparse=sparse,
-        return_labels_and_features=True
-    )
-    label_names = [label[0] for label in labels]
-
-    return X, Y, features, label_names
 
 ## LABEL CLUSTER ##############################################################################################################################################################################################
 
@@ -41,8 +27,8 @@ def select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters,
     best_partition = None
     best_num_clusters = 0
 
-    for num_clusters in range(2, max_clusters + 1):
-        
+    for num_clusters in range(2, max_clusters):
+
         partition = fcluster(linkage_matrix, num_clusters, criterion='maxclust')
         score = silhouette_score(dissimilarity_matrix, partition, metric="precomputed")
 
@@ -51,6 +37,7 @@ def select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters,
             best_partition = partition
             best_num_clusters = num_clusters
 
+
     cluster_dict = {}
     for label, cluster in zip(label_names, best_partition):
         if cluster not in cluster_dict:
@@ -58,7 +45,9 @@ def select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters,
         cluster_dict[cluster].append(label)
 
     for cluster_id, labels in sorted(cluster_dict.items()):
-        print(f"Cluster {cluster_id}: {', '.join(labels)}")
+        #print(f"Cluster {cluster_id}: {', '.join(labels)}")
+
+    #print("Final Best partition:", best_partition)
 
     return best_partition
 
@@ -96,14 +85,14 @@ def predict_and_combine(models, X_test, best_partition, num_labels):
         indices_cluster = np.where(best_partition == cluster_id + 1)[0]
         Y_pred_cluster = model.predict(X_test_enhanced)
         X_test_enhanced = np.hstack((X_test_enhanced, Y_pred_cluster))
-        Y_pred_final[:, indices_cluster] = Y_pred_cluster
+        Y_pred_final[:, indices_cluster] = Y_pred_cluster #mirar esta linea
 
     return Y_pred_final
 
 
 ## LABEL CLUSTER CHAIN FOR MULTILABEL CLASSIFICATION ##############################################################################################################################################################################################
 
-def LCC_MLC(file_path, num_labels, sparse=False, max_clusters=10):
+def LCC_MLC(file_path, num_labels, sparse=False):
     """
     Implements the Label Cluster Chains for Multi-Label Classification (LCC-MLC) method.
     
@@ -119,15 +108,25 @@ def LCC_MLC(file_path, num_labels, sparse=False, max_clusters=10):
     - Final predicted labels for the dataset.
     """
 
-    X, Y, features, label_names = load_and_preprocess_data(file_path, num_labels, sparse)
-    similarity_matrix = compute_similarity_matrix(Y)
+    X, Y, features, label_names = load_multilabel_dataset(file_path, num_labels, sparse)
+    #print(Y)
+
+    similarity_matrix = 1-compute_label_similarity_matrix(Y)
+    #print("Similarty matrix: ",similarity_matrix.shape)
+    #print(similarity_matrix)
     dissimilarity_matrix = convert_to_dissimilarity_matrix(similarity_matrix)
+    #print(dissimilarity_matrix)
+
     linkage_matrix = hierarchical_clustering(dissimilarity_matrix)
     plot_dendrogram(linkage_matrix, labels=label_names)
-    best_partition = select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters, label_names)
+
+    best_partition = select_optimal_partition(linkage_matrix, dissimilarity_matrix, num_labels, label_names)
     models = train_classifiers_per_cluster(X, Y, best_partition)
     Y_pred_final = predict_and_combine(models, X, best_partition, num_labels)
 
-    print("Final predictions for all instances:")
-    print(Y_pred_final)
+    #print("Final predictions for all instances:")
+    #print(Y_pred_final)
+
+    evaluate_multilabel_classification(Y, Y_pred_final)
+
     return Y_pred_final
