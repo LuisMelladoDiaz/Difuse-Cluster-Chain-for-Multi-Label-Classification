@@ -116,9 +116,9 @@ def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, random_
     models = train_fuzzy_classifiers(X, Y, membership_matrix, random_state)
 
     # Realizar predicciones
-    Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels, random_state)
+    Y_pred_final = predict_fuzzy(models, X_test, membership_matrix, num_labels, random_state)
 
     # Evaluación de las predicciones
-    evaluation_metrics = evaluate_multilabel_classification(Y, Y_pred_final)
+    evaluation_metrics = evaluate_multilabel_classification(Y_test, Y_pred_final)
 
     return Y_pred_final, evaluation_metrics
