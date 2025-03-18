@@ -5,7 +5,7 @@ from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classif
 from utils.preprocessing import scale_data
 import random
 
-def train_CC(X_train, y_train, X_test, order="random", random_state=None):
+def train_CC(X_train, y_train, X_test, Y_test, order="random", random_state=None):
     """
     Train a single Classifier Chain (CC) model.
 
@@ -28,7 +28,10 @@ def train_CC(X_train, y_train, X_test, order="random", random_state=None):
     chain = ClassifierChain(base_lr, order=order, random_state=random_state)
     chain.fit(X_train_scaled, y_train)
     Y_pred_chain = chain.predict(X_test_scaled)
-    return Y_pred_chain
+
+    evaluation_metrics = evaluate_multilabel_classification(Y_test, Y_pred_chain)
+
+    return Y_pred_chain, evaluation_metrics
 
 def train_ECC(X_train, y_train, X_test, Y_test, number_of_chains=10, random_state=None):
     """
