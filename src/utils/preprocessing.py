@@ -67,7 +67,7 @@ def load_arff_data(filename, label_count, sparse, to_array=True, return_labels_a
     else:
         return X, y
     
-def load_multilabel_dataset(file_path, num_labels, sparse):
+def load_multilabel_dataset(file_path, num_labels, sparse=False):
     #print("Loading and preprocessing data...")
     
     X, Y, features, labels = load_arff_data(file_path, num_labels, sparse, return_labels_and_features=True)
