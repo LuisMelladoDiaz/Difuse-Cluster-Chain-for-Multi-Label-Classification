@@ -67,4 +67,4 @@ def train_ECC(X_train, y_train, X_test, Y_test, number_of_chains=10, random_stat
 
     evaluation_metrics = evaluate_multilabel_classification(Y_test, Y_pred_ensemble_binary)
 
-    return Y_pred_chains, Y_pred_ensemble_binary, evaluation_metrics
+    return Y_pred_ensemble_binary, evaluation_metrics

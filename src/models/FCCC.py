@@ -100,25 +100,23 @@ def predict_fuzzy(models, X_test, membership_matrix, num_labels, seed=None):
 
 ## FCCC ################################################################################################
 
-def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, seed=None):
+def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, random_state=None, threshold=0.1):
     """Implementación de Label Cluster Chains con Clustering Difuso."""
 
-    #print("Starting Fuzzy LCC-MLC...")
-
     # Fijar la semilla
-    if seed is not None:
-        np.random.seed(seed)
-        random.seed(seed)
+    if random_state is not None:
+        np.random.seed(random_state)
+        random.seed(random_state)
 
     # Computar matriz de similitud y aplicar clustering difuso
     similarity_matrix = compute_label_similarity_matrix(Y)
-    membership_matrix = clean_membership_matrix(apply_fuzzy_cmeans(similarity_matrix, num_clusters, seed))
+    membership_matrix = clean_membership_matrix(apply_fuzzy_cmeans(similarity_matrix, num_clusters, random_state), threshold)
 
     # Entrenar clasificadores
-    models = train_fuzzy_classifiers(X, Y, membership_matrix, seed)
+    models = train_fuzzy_classifiers(X, Y, membership_matrix, random_state)
 
     # Realizar predicciones
-    Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels, seed)
+    Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels, random_state)
 
     # Evaluación de las predicciones
     evaluation_metrics = evaluate_multilabel_classification(Y, Y_pred_final)
