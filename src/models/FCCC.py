@@ -5,7 +5,7 @@ from utils.preprocessing import load_multilabel_dataset
 import random
 from sklearn.multioutput import ClassifierChain
 from sklearn.ensemble import RandomForestClassifier
-from evaluation_metrics.multilabel_evaluation import run_evaluation_and_save_results
+from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification, run_evaluation_and_save_results
 from utils.similarity import compute_label_similarity_matrix
 import csv
 
@@ -101,7 +101,7 @@ def predict_fuzzy(models, X_test, membership_matrix, num_labels, seed=None):
 
 ## FCCC ################################################################################################
 
-def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None, experiment_name = "experimentos/FCCC/results.csv"):
+def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None):
     """Implementación de Label Cluster Chains con Clustering Difuso."""
 
     #print("Starting Fuzzy LCC-MLC...")
@@ -125,6 +125,6 @@ def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None, experim
     Y_pred_final = predict_fuzzy(models, X, membership_matrix, num_labels, seed)
 
     # Evaluación de las predicciones
-    evaluation_metrics = run_evaluation_and_save_results(Y, Y_pred_final, experiment_name)
+    evaluation_metrics = evaluate_multilabel_classification(Y, Y_pred_final)
 
-    return Y_pred_final
+    return Y_pred_final, evaluation_metrics
