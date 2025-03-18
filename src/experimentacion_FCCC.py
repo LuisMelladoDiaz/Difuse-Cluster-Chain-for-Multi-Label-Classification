@@ -1,9 +1,11 @@
 from models.FCCC import FCCC
 import pandas as pd
 
+from utils.preprocessing import load_multilabel_dataset
+
 # CONFIGURACIÓN
 MULTILABEL_DATASETS_DIR = "datasets/multi_etiqueta/"
-DATASETS = {"Birds": 19, "Emotions": 6, "FoodTruck": 12}
+DATASETS = {"Birds": 19, "Emotions": 6}
 UMBRAL = 0
 NUM_CLUSTERS = 3
 SEEDS = [42, 123, 7, 13, 2023, 1995, 101, 555, 999, 314, 69, 1001, 21, 33, 404, 777, 666, 1234, 4321, 9876, 2468, 1357, 1111, 2222, 3333, 4444, 5555, 8888, 9999, 10000]
@@ -14,19 +16,25 @@ resultados = {}
 
 # EXPERIMENTACIÓN
 for dataset in DATASETS:
+    
     resultados[dataset] = {}
+
+    file_path = f"{MULTILABEL_DATASETS_DIR}{dataset}/{dataset.lower()}"
+    train_file_path = f"{file_path}-train.arff"
+    test_file_path = f"{file_path}-test.arff"
+
+    num_labels = DATASETS[dataset]
+
+    # Cargar datos
+    X_train, y_train, _, _ = load_multilabel_dataset(train_file_path, DATASETS[dataset])
+    X_test, y_test, _, _ = load_multilabel_dataset(test_file_path, DATASETS[dataset])
+
     for i in range(NUM_EXPERIMENTOS):
-
-        file_path = f"{MULTILABEL_DATASETS_DIR}{dataset}/{dataset.lower()}"
-        train_file_path = f"{file_path}-train.arff"
-        test_file_path = f"{file_path}-test.arff"
-
-        num_labels = DATASETS[dataset]
+        
         seed = SEEDS[i]
-
         print(f"Ejecutando experimento {i+1} para el dataset {dataset}...")
         
-        prediction, metrics = FCCC(train_file_path, num_labels, False, NUM_CLUSTERS, seed)
+        prediction, metrics = FCCC(X_train, y_train, X_test, y_test, num_labels, False, NUM_CLUSTERS, seed)
         resultados[dataset][i+1] = metrics
 
 

@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import skfuzzy as fuzz
-from utils.preprocessing import load_multilabel_dataset
 import random
 from sklearn.multioutput import ClassifierChain
 from sklearn.ensemble import RandomForestClassifier
@@ -101,7 +100,7 @@ def predict_fuzzy(models, X_test, membership_matrix, num_labels, seed=None):
 
 ## FCCC ################################################################################################
 
-def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None):
+def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, seed=None):
     """Implementación de Label Cluster Chains con Clustering Difuso."""
 
     #print("Starting Fuzzy LCC-MLC...")
@@ -110,9 +109,6 @@ def FCCC(file_path, num_labels, sparse=False, num_clusters=3, seed=None):
     if seed is not None:
         np.random.seed(seed)
         random.seed(seed)
-
-    # Cargar y preprocesar datos
-    X, Y, features, label_names = load_multilabel_dataset(file_path, num_labels, sparse)
 
     # Computar matriz de similitud y aplicar clustering difuso
     similarity_matrix = compute_label_similarity_matrix(Y)

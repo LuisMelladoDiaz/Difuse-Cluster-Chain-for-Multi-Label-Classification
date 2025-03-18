@@ -15,19 +15,20 @@ resultados = {}
 # EXPERIMENTACIÓN
 for dataset in DATASETS:
     resultados[dataset] = {}
+
+    file_path = f"{MULTILABEL_DATASETS_DIR}{dataset}/{dataset.lower()}"
+    train_file_path = f"{file_path}-train.arff"
+    test_file_path = f"{file_path}-test.arff"
+
+    # Cargar datos
+    X_train, y_train, _, _ = load_multilabel_dataset(train_file_path, DATASETS[dataset])
+    X_test, y_test, _, _ = load_multilabel_dataset(test_file_path, DATASETS[dataset])
+    
     for i in range(NUM_EXPERIMENTOS):
+        
         seed = SEEDS[i]
-
-        file_path = f"{MULTILABEL_DATASETS_DIR}{dataset}/{dataset.lower()}"
-        train_file_path = f"{file_path}-train.arff"
-        test_file_path = f"{file_path}-test.arff"
-
         print(f"Ejecutando experimento {i+1} para el dataset {dataset}...")
-        
-        # Cargar datos
-        X_train, y_train, _, _ = load_multilabel_dataset(train_file_path, DATASETS[dataset])
-        X_test, y_test, _, _ = load_multilabel_dataset(test_file_path, DATASETS[dataset])
-        
+
         # Entrenar ECC
         _, Y_pred_ensemble_binary, metrics = train_ECC(X_train, y_train, X_test, y_test, number_of_chains=NUM_CHAINS, random_state=seed)
         
