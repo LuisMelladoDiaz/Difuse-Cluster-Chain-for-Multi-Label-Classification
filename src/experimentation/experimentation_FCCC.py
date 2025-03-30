@@ -4,7 +4,7 @@ from experimentation_framework import ExperimentationFramework
 # CONFIGURACIÓN
 DATASETS = {"Birds": 19, "Emotions": 6}
 NUM_CLUSTERS = 3
-NUM_EXPERIMENTOS = 10
+NUM_EXPERIMENTOS = 20
 THRESHOLD = 0.1
 
 # Inicializar y ejecutar experimentos

@@ -4,18 +4,13 @@ import skfuzzy as fuzz
 import random
 from sklearn.multioutput import ClassifierChain
 from sklearn.ensemble import RandomForestClassifier
-from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification, run_evaluation_and_save_results
+from sklearn.preprocessing import StandardScaler
+from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
 from utils.similarity import compute_label_similarity_matrix
-import csv
-
 
 ## FUZZY CLUSTERING ###################################################################################################
 
 def apply_fuzzy_cmeans(similarity_matrix, num_clusters, seed=None):
-    """Aplica el algoritmo Fuzzy C-Means sobre la matriz de distancias."""
-    
-    #print("Applying Fuzzy c-means over labels...")
-
     if seed is not None:
         np.random.seed(seed)
         random.seed(seed)
@@ -24,101 +19,105 @@ def apply_fuzzy_cmeans(similarity_matrix, num_clusters, seed=None):
     normalized_similarity_matrix = 1 - (similarity_matrix / max_distance)
     
     cntr, u, _, _, _, _, _ = fuzz.cmeans(normalized_similarity_matrix, num_clusters, 1.2, error=0.005, maxiter=1000, seed=seed)
-    membership_matrix = u.T
-    
-    
-    return membership_matrix # Matriz etiquetas x clusters
+    return u.T  # Matriz etiquetas x clusters
 
 
 def clean_membership_matrix(membership_matrix, threshold=0.1):
-    """Aplica un umbral sobre la matriz de pertenencia y normaliza las filas para que sumen 1."""
-    
     membership_matrix[membership_matrix < threshold] = 0
-    
     row_sums = np.sum(membership_matrix, axis=1, keepdims=True)
-    normalized_membership_matrix = membership_matrix / row_sums
-    
-    return normalized_membership_matrix
-
+    return membership_matrix / row_sums
 
 ## ORDER CLUSTERS ################################################################################################
 
 def order_clusters(num_clusters, seed=None):
-    """Devuelve un orden aleatorio de los clusters."""
     order = list(range(num_clusters))
     if seed is not None:
         random.seed(seed)
     random.shuffle(order)
     return order
 
-
-## LABEL CLUSTER CHAIN ################################################################################################
+## TRAIN & PREDICT ##################################################################
 
 def train_fuzzy_classifiers(X_train, Y_train, membership_matrix, seed=None):
-    """Entrena un clasificador por cada cluster usando las asignaciones difusas en el orden aleatorio."""
     num_clusters = membership_matrix.shape[1]
     models = []
     cluster_order = order_clusters(num_clusters, seed)
     
+    scaler = StandardScaler()
+    X_train_enhanced = scaler.fit_transform(X_train)
+    
     for cluster_idx in cluster_order:
-        cluster_weights = membership_matrix[:, cluster_idx]  # Pertenencia de cada etiqueta al cluster
-        selected_labels = cluster_weights > 0  # Etiquetas con pertenencia significativa
+
+        # Matriz peso-etiqueta para el cluster x
+        cluster_weights = membership_matrix[:, cluster_idx]
+        selected_labels = cluster_weights > 0
         
         if np.sum(selected_labels) == 0:
             models.append(None)
             continue
         
-        Y_cluster = Y_train[:, selected_labels]  # Subconjunto de etiquetas
+        # Entrenar modelo
+        Y_cluster = Y_train[:, selected_labels]
         model = ClassifierChain(RandomForestClassifier(n_estimators=100, random_state=seed))
-        model.fit(X_train, Y_cluster)
+        model.fit(X_train_enhanced, Y_cluster)
+        
+        # Añadir predicciones como nuevas características
+        Y_pred_cluster = model.predict_proba(X_train_enhanced)
+        X_train_enhanced = np.hstack((X_train_enhanced, Y_pred_cluster))
+
+        # Añadir modelo a la cadena
         models.append((model, selected_labels))
     
-    return models
+    return models, scaler
 
+def predict_fuzzy(models, X_test, membership_matrix, num_labels, scaler):
 
-def predict_fuzzy(models, X_test, membership_matrix, num_labels, seed=None):
-    """Realiza predicciones y combina los resultados ponderando por la pertenencia a cada cluster."""
     num_clusters = len(models)
+    X_test_enhanced = scaler.transform(X_test)
+
+    # Inicializar matriz prediccion
     predictions = np.zeros((X_test.shape[0], num_labels))
     weights = np.zeros((X_test.shape[0], num_labels))
     
     for cluster_idx in range(num_clusters):
+
+        # Seleccionar modelo para el cluster X
         model, selected_labels = models[cluster_idx]
+
         if model is None:
             continue
         
-        Y_pred = model.predict(X_test)  # Predicciones del cluster ¿PREDICT PROBA??
-        cluster_weights = membership_matrix[:, cluster_idx][selected_labels]  # Ponderaciones de pertenencia
+        # Predecir y añadir como característica
+        Y_pred_cluster = model.predict_proba(X_test_enhanced)
+        X_test_enhanced = np.hstack((X_test_enhanced, Y_pred_cluster))
         
-        predictions[:, selected_labels] += Y_pred * cluster_weights
-        weights[:, selected_labels] += cluster_weights
-    
-    final_predictions = predictions / np.maximum(weights, 1e-6)
-    
-    return (final_predictions > 0.5).astype(int)  # Binarización final
+        # Ponderar predicción
+        cluster_weights = membership_matrix[:, cluster_idx][selected_labels]
+        predictions[:, selected_labels] += Y_pred_cluster * cluster_weights
 
+        # Accumulación de peso
+        weights[:, selected_labels] += cluster_weights
+
+    print(np.maximum(weights, 1e-6))
+    
+    # Normalizar
+    final_predictions = predictions / np.maximum(weights, 1e-6)
+
+    return (final_predictions > 0.5).astype(int)
 
 ## FCCC ################################################################################################
 
 def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, random_state=None, threshold=0.1):
-    """Implementación de Label Cluster Chains con Clustering Difuso."""
-
-    # Fijar la semilla
     if random_state is not None:
         np.random.seed(random_state)
         random.seed(random_state)
 
-    # Computar matriz de similitud y aplicar clustering difuso
     similarity_matrix = compute_label_similarity_matrix(Y)
     membership_matrix = clean_membership_matrix(apply_fuzzy_cmeans(similarity_matrix, num_clusters, random_state), threshold)
-
-    # Entrenar clasificadores
-    models = train_fuzzy_classifiers(X, Y, membership_matrix, random_state)
-
-    # Realizar predicciones
-    Y_pred_final = predict_fuzzy(models, X_test, membership_matrix, num_labels, random_state)
-
-    # Evaluación de las predicciones
+    
+    models, scaler = train_fuzzy_classifiers(X, Y, membership_matrix, random_state)
+    Y_pred_final = predict_fuzzy(models, X_test, membership_matrix, num_labels, scaler)
+    
     evaluation_metrics = evaluate_multilabel_classification(Y_test, Y_pred_final)
-
+    
     return Y_pred_final, evaluation_metrics

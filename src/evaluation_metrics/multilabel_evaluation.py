@@ -8,15 +8,20 @@ def evaluate_multilabel_classification(y_true, y_pred):
     
     # Calcular métricas
     metrics = {
-        "Accuracy (Subset)": accuracy_score(y_true, y_pred),  # Exact match (todas las etiquetas correctas)
-        "Hamming Loss": hamming_loss(y_true, y_pred),         # Errores a nivel de etiqueta
+        "Accuracy (Subset)": accuracy_score(y_true, y_pred),
+        "Hamming Loss": hamming_loss(y_true, y_pred),
         "Precision (Macro)": precision_score(y_true, y_pred, average="macro", zero_division=0),
         "Recall (Macro)": recall_score(y_true, y_pred, average="macro", zero_division=0),
         "F1-Score (Macro)": f1_score(y_true, y_pred, average="macro", zero_division=0),
+        "Precision (Micro)": precision_score(y_true, y_pred, average="micro", zero_division=0),
+        "Recall (Micro)": recall_score(y_true, y_pred, average="micro", zero_division=0),
+        "F1-Score (Micro)": f1_score(y_true, y_pred, average="micro", zero_division=0),
         "Precision (Samples)": precision_score(y_true, y_pred, average="samples", zero_division=0),
         "Recall (Samples)": recall_score(y_true, y_pred, average="samples", zero_division=0),
         "F1-Score (Samples)": f1_score(y_true, y_pred, average="samples", zero_division=0)
     }
+
+    ## METER LAS MICRO
     
     #for metric, value in metrics.items():
         #print(f"{metric}: {value:.4f}")
