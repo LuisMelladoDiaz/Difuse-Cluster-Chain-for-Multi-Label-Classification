@@ -8,6 +8,12 @@ def load_dataset(filepath):
     if filepath.endswith(".arff"):
         data = arff.loadarff(filepath)
         df = pd.DataFrame(data[0])
+        
+        # Limpiar cualquier valor b'X' y convertirlo a X
+        for column in df.columns:
+            if df[column].dtype == 'object':  # Si la columna tiene tipo 'object' (por ejemplo, b'0', b'1', b'valor')
+                df[column] = df[column].apply(lambda x: x.decode() if isinstance(x, bytes) else x)  # Decodificar bytes
+                df[column] = df[column].apply(lambda x: 1 if x == '1' else 0 if x == '0' else x)  # Convertir binarios b'1' y b'0'
     else:
         df = pd.read_csv(filepath)
     return df

@@ -98,10 +98,9 @@ def predict_fuzzy(models, X_test, membership_matrix, num_labels, scaler):
         # Accumulación de peso
         weights[:, selected_labels] += cluster_weights
 
-    print(np.maximum(weights, 1e-6))
     
     # Normalizar
-    final_predictions = predictions / np.maximum(weights, 1e-6)
+    final_predictions = predictions / np.maximum(weights, 1e-6) # por si alguna etiqueta no pertenece a ningun cluster despues de aplicar el threshold
 
     return (final_predictions > 0.5).astype(int)
 
