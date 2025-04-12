@@ -1,38 +1,16 @@
 from sklearn.metrics import jaccard_score
-import matplotlib.pyplot as plt
 import numpy as np
 
-def compute_jaccard_similarity(y_true, y_pred):
-    """
-    Compute the Jaccard similarity score for multi-label classification.
-
-    Args:
-        y_true: Ground truth labels (binary multi-label array).
-        y_pred: Predicted labels (binary multi-label array).
-
-    Returns:
-        Jaccard similarity score averaged across all samples.
-    """
+def jaccard_similarity_score(y_true, y_pred):
     return jaccard_score(y_true, y_pred, average="samples", zero_division=0)
 
-def compute_jaccard_index(y_vector_1, y_vector_2):
-    """
-    Compute the Jaccard similarity index between two binary label vectors.
+def jaccard_index(y1, y2):
+    return _jaccard(y1, y2)
 
-    Args:
-        y_vector_1: First binary label vector.
-        y_vector_2: Second binary label vector.
+def jaccard_distance(y1, y2):
+    return 1 - _jaccard(y1, y2)
 
-    Returns:
-        Jaccard similarity index between the two vectors.
-    """
-    intersection = np.sum((y_vector_1 == 1) & (y_vector_2 == 1))
-    union = np.sum((y_vector_1 == 1) | (y_vector_2 == 1))
-    return intersection / union if union > 0 else 0.0
-
-def compute_jaccard_distance(y1, y2):
-    """Calcula la distancia Jaccard entre dos vectores binarios."""
+def _jaccard(y1, y2):
     intersection = np.sum(np.logical_and(y1, y2))
     union = np.sum(np.logical_or(y1, y2))
-    return 1 - (intersection / union)
-
+    return intersection / union if union > 0 else 0.0

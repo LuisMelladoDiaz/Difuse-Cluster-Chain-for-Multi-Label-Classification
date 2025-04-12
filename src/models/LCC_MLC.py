@@ -1,132 +1,140 @@
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.multioutput import MultiOutputClassifier
-from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
-from utils.plotting import plot_dendrogram
 import numpy as np
+import warnings
 from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.spatial.distance import squareform
 from sklearn.metrics import silhouette_score
-from utils.preprocessing import load_multilabel_dataset
-from utils.similarity import compute_label_similarity_matrix, convert_to_dissimilarity_matrix
+from sklearn.ensemble import RandomForestClassifier
+from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
+from utils.similarity import compute_cluster_similarity, compute_label_similarity_matrix, convert_to_dissimilarity_matrix
+
+### ========================== UTILIDADES GENERALES ==========================
+
+def append_predictions_to_features(features, predictions):
+    if predictions.ndim == 1:
+        predictions = predictions.reshape(-1, 1)
+    return np.hstack((features, predictions))
+
+def train_cluster_model(X, y, label_indices, random_state=None):
+    y_cluster = y[:, label_indices]
+    model = RandomForestClassifier(n_estimators=100, random_state=random_state)
+    model.fit(X, y_cluster)
+    return model
+
+def predict_cluster(model, X, label_indices, y_pred):
+    cluster_pred = model.predict(X)
+    
+    if cluster_pred.ndim == 1:
+        cluster_pred = cluster_pred.reshape(-1, 1)
+
+    for j, label_idx in enumerate(label_indices):
+        y_pred[:, label_idx] = cluster_pred[:, j]
+    
+    return cluster_pred
 
 
-## LABEL CLUSTER ##############################################################################################################################################################################################
 
-def hierarchical_clustering(dissimilarity_matrix, method='ward'):
-    """Performs hierarchical clustering using the Ward method."""
+### ========================== CLUSTERING Y ORDENAMIENTO ==========================
 
-    compressed_distances = dissimilarity_matrix[np.triu_indices_from(dissimilarity_matrix, k=1)]
-    linkage_matrix = linkage(compressed_distances, method=method)
-    return linkage_matrix
-
-
-def select_optimal_partition(linkage_matrix, dissimilarity_matrix, max_clusters, label_names):
-    """Selects the optimal label clustering partition based on silhouette score."""
+def find_optimal_clusters(similarity_matrix, max_clusters=10):
+    dissimilarity_matrix = convert_to_dissimilarity_matrix(similarity_matrix)
+    distances = squareform(dissimilarity_matrix)
+    linkage_matrix = linkage(distances, method='ward')
 
     best_score = -1
-    best_partition = None
-    best_num_clusters = 0
+    best_labels = None
+    best_n_clusters = 2
 
-    for num_clusters in range(2, max_clusters):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for n_clusters in range(2, min(max_clusters + 1, similarity_matrix.shape[0])):
+            labels = fcluster(linkage_matrix, n_clusters, criterion='maxclust')
+            try:
+                score = silhouette_score(dissimilarity_matrix, labels, metric='precomputed')
+                if score > best_score:
+                    best_score = score
+                    best_n_clusters = n_clusters
+                    best_labels = labels
+            except:
+                continue
 
-        partition = fcluster(linkage_matrix, num_clusters, criterion='maxclust')
-        score = silhouette_score(dissimilarity_matrix, partition, metric="precomputed")
+    return best_labels, best_n_clusters
 
-        if score > best_score:
-            best_score = score
-            best_partition = partition
-            best_num_clusters = num_clusters
+def order_clusters(cluster_labels, similarity_matrix):
+    cluster_similarities = compute_cluster_similarity(cluster_labels, similarity_matrix)
+    n_clusters = cluster_similarities.shape[0]
 
+    ordered_clusters = []
+    remaining = list(range(n_clusters))
 
-    cluster_dict = {}
-    for label, cluster in zip(label_names, best_partition):
-        if cluster not in cluster_dict:
-            cluster_dict[cluster] = []
-        cluster_dict[cluster].append(label)
+    current = np.argmin(np.mean(cluster_similarities, axis=1))
+    ordered_clusters.append(current)
+    remaining.remove(current)
 
-    for cluster_id, labels in sorted(cluster_dict.items()):
-        #print(f"Cluster {cluster_id}: {', '.join(labels)}")
+    while remaining:
+        similarities = [cluster_similarities[current, j] for j in remaining]
+        current = remaining[np.argmax(similarities)]
+        ordered_clusters.append(current)
+        remaining.remove(current)
 
-    #print("Final Best partition:", best_partition)
+    return [x + 1 for x in ordered_clusters]
 
-    return best_partition
+### ========================== ENTRENAMIENTO ==========================
 
-
-## LABEL CLUSTER CHAIN ##############################################################################################################################################################################################
-
-def train_classifiers_per_cluster(X_train, Y_train, best_partition):
-    """Trains multi-label classifiers for each label cluster."""
+def train_LCC_MLC(X_train, y_train, random_state=None):
+    similarity_matrix = compute_label_similarity_matrix(y_train)
+    cluster_labels, n_clusters = find_optimal_clusters(similarity_matrix)
+    cluster_order = order_clusters(cluster_labels, similarity_matrix)
 
     models = []
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_train_enhanced = X_train.copy()
+    cluster_label_mapping = []
+    current_features = X_train.copy()
 
-    for cluster_id in np.unique(best_partition):
-        indices_cluster = np.where(best_partition == cluster_id)[0]
-        Y_train_cluster = Y_train[:, indices_cluster]
-        base_model = LogisticRegression(max_iter=1000)
-        cluster_model = MultiOutputClassifier(base_model)
-        cluster_model.fit(X_train_enhanced, Y_train_cluster)
-        Y_pred_cluster = cluster_model.predict(X_train_enhanced)
-        X_train_enhanced = np.hstack((X_train_enhanced, Y_pred_cluster))
-        models.append(cluster_model)
+    for cluster_idx in cluster_order:
+        mask = cluster_labels == cluster_idx
+        label_indices = np.where(mask)[0]
+        cluster_label_mapping.append(label_indices)
 
-    return models
+        model = train_cluster_model(current_features, y_train, label_indices, random_state)
+        models.append(model)
 
-def predict_and_combine(models, X_test, best_partition, num_labels):
-    """Performs prediction using trained cluster models and propagates predictions as new features."""
+        if len(models) < n_clusters:
+            predictions = model.predict(current_features)
+            current_features = append_predictions_to_features(current_features, predictions)
 
-    Y_pred_final = np.zeros((X_test.shape[0], num_labels))
-    X_test_enhanced = X_test.copy()
+    return {
+        'models': models,
+        'cluster_label_mapping': cluster_label_mapping,
+        'n_clusters': n_clusters,
+        'cluster_order': cluster_order,
+        'cluster_labels': cluster_labels
+    }
 
-    for cluster_id, model in enumerate(models):
+### ========================== PREDICCIÓN ==========================
 
-        indices_cluster = np.where(best_partition == cluster_id + 1)[0]
-        Y_pred_cluster = model.predict(X_test_enhanced)
-        X_test_enhanced = np.hstack((X_test_enhanced, Y_pred_cluster))
-        Y_pred_final[:, indices_cluster] = Y_pred_cluster #mirar esta linea
+def predict_LCC_MLC(X, trained_model):
+    models = trained_model['models']
+    cluster_label_mapping = trained_model['cluster_label_mapping']
+    n_clusters = trained_model['n_clusters']
 
-    return Y_pred_final
+    n_labels = sum(len(mapping) for mapping in cluster_label_mapping)
+    y_pred = np.zeros((X.shape[0], n_labels))
+    current_features = X.copy()
 
+    for i, (model, label_indices) in enumerate(zip(models, cluster_label_mapping)):
+        cluster_pred = predict_cluster(model, current_features, label_indices, y_pred)
 
-## LABEL CLUSTER CHAIN FOR MULTILABEL CLASSIFICATION ##############################################################################################################################################################################################
+        if i < n_clusters - 1:
+            current_features = append_predictions_to_features(current_features, cluster_pred)
 
-def LCC_MLC(file_path, num_labels, sparse=False):
-    """
-    Implements the Label Cluster Chains for Multi-Label Classification (LCC-MLC) method.
-    
-    Steps:
-    1. Load and preprocess the dataset.
-    2. Compute label similarity and dissimilarity matrices.
-    3. Perform hierarchical clustering to identify label clusters.
-    4. Select the best partition using silhouette score.
-    5. Train multi-label classifiers for each label cluster.
-    6. Predict using trained models and combine predictions.
-    
-    Returns:
-    - Final predicted labels for the dataset.
-    """
+    return y_pred
 
-    X, Y, features, label_names = load_multilabel_dataset(file_path, num_labels, sparse)
-    #print(Y)
+### ========================== PIPELINE COMPLETO ==========================
 
-    similarity_matrix = 1-compute_label_similarity_matrix(Y)
-    #print("Similarty matrix: ",similarity_matrix.shape)
-    #print(similarity_matrix)
-    dissimilarity_matrix = convert_to_dissimilarity_matrix(similarity_matrix)
-    #print(dissimilarity_matrix)
+def LCC_MLC(X_train, y_train, X_test, y_test, random_state=None):
 
-    linkage_matrix = hierarchical_clustering(dissimilarity_matrix)
-    plot_dendrogram(linkage_matrix, labels=label_names)
+    trained_model = train_LCC_MLC(X_train, y_train, random_state)
+    y_pred = predict_LCC_MLC(X_test, trained_model)
 
-    best_partition = select_optimal_partition(linkage_matrix, dissimilarity_matrix, num_labels, label_names)
-    models = train_classifiers_per_cluster(X, Y, best_partition)
-    Y_pred_final = predict_and_combine(models, X, best_partition, num_labels)
+    metrics = evaluate_multilabel_classification(y_test, y_pred)
 
-    #print("Final predictions for all instances:")
-    #print(Y_pred_final)
-
-    evaluate_multilabel_classification(Y, Y_pred_final)
-
-    return Y_pred_final
+    return y_pred, metrics

@@ -6,7 +6,7 @@ from sklearn.multioutput import ClassifierChain
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from evaluation_metrics.multilabel_evaluation import evaluate_multilabel_classification
-from utils.similarity import compute_label_similarity_matrix
+from utils.similarity import compute_label_distance_matrix
 
 ## FUZZY CLUSTERING ###################################################################################################
 
@@ -111,7 +111,7 @@ def FCCC(X, Y, X_test, Y_test, num_labels, sparse=False, num_clusters=3, random_
         np.random.seed(random_state)
         random.seed(random_state)
 
-    similarity_matrix = compute_label_similarity_matrix(Y)
+    similarity_matrix = compute_label_distance_matrix(Y)
     membership_matrix = clean_membership_matrix(apply_fuzzy_cmeans(similarity_matrix, num_clusters, random_state), threshold)
     
     models, scaler = train_fuzzy_classifiers(X, Y, membership_matrix, random_state)

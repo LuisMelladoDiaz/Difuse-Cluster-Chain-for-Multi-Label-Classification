@@ -20,11 +20,6 @@ def evaluate_multilabel_classification(y_true, y_pred):
         "Recall (Samples)": recall_score(y_true, y_pred, average="samples", zero_division=0),
         "F1-Score (Samples)": f1_score(y_true, y_pred, average="samples", zero_division=0)
     }
-
-    ## METER LAS MICRO
-    
-    #for metric, value in metrics.items():
-        #print(f"{metric}: {value:.4f}")
     
     return metrics
 
