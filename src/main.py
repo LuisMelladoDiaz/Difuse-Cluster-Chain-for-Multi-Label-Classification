@@ -4,7 +4,7 @@ import os
 from models.CC import train_CC
 from models.CC import train_ECC
 from models.FCCC import FCCC
-from experimentation_framework import ExperimentationFramework
+from experimentation_framework.experimentation_framework import ExperimentationFramework
 
 
 # Función para ejecutar FCCC

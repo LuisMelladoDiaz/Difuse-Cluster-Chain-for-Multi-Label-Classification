@@ -136,6 +136,14 @@ ENV/
 env.bak/
 venv.bak/
 
+.datasets
+datasets/
+datasets/multi_etiqueta/Yahoo_Business/train_*.arff
+datasets/multi_etiqueta/Yahoo_Arts/train_*.arff
+datasets/multi_etiqueta/Yahoo_Business/test_*.arff
+datasets/multi_etiqueta/Yahoo_Arts/test_*.arff
+
+
 # Spyder project settings
 .spyderproject
 .spyproject

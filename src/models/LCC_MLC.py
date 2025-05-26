@@ -16,7 +16,7 @@ def append_predictions_to_features(features, predictions):
 
 def train_cluster_model(X, y, label_indices, random_state=None):
     y_cluster = y[:, label_indices]
-    model = RandomForestClassifier(n_estimators=100, random_state=random_state)
+    model = RandomForestClassifier(n_estimators=10, random_state=random_state, n_jobs=-1)
     model.fit(X, y_cluster)
     return model
 
@@ -30,8 +30,6 @@ def predict_cluster(model, X, label_indices, y_pred):
         y_pred[:, label_idx] = cluster_pred[:, j]
     
     return cluster_pred
-
-
 
 ### ========================== CLUSTERING Y ORDENAMIENTO ==========================
 

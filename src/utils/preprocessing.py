@@ -3,6 +3,8 @@ import pandas as pd
 from skmultilearn.dataset import load_from_arff
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+import os
+
 
 ## DATASET LOADING ##########################################################################################################################################
 
@@ -102,5 +104,55 @@ def scale_training_set(X_train):
     """
     scaler = StandardScaler()
     return scaler.fit_transform(X_train)
+
+
+def procesar_arff(archivo):
+    with open(archivo, 'r') as f_in:
+        lineas = f_in.readlines()
+
+    en_datos = False
+    num_atributos = 0
+    lineas_modificadas = []
+
+    for linea in lineas:
+        linea_strip = linea.strip()
+
+        if not en_datos:
+            lineas_modificadas.append(linea_strip)
+            if linea_strip.lower().startswith("@attribute"):
+                num_atributos += 1
+            elif linea_strip.lower() == "@data":
+                en_datos = True
+        elif linea_strip.startswith("{") and linea_strip.endswith("}"):
+            # Procesar línea de datos
+            contenido = linea_strip[1:-1]  # quitar llaves
+            contenido = contenido.replace(",", ".")  # , a .
+            contenido = contenido.replace(" ", ",")  # espacios a ,
+            valores = contenido.split(",")
+
+            # Completar con ceros si faltan atributos
+            if len(valores) < num_atributos:
+                valores += ["0"] * (num_atributos - len(valores))
+
+            linea_modificada = ",".join(valores)
+            lineas_modificadas.append(linea_modificada)
+        else:
+            lineas_modificadas.append(linea_strip)
+
+    # Sobrescribir el archivo con el contenido modificado
+    with open(archivo, 'w') as f_out:
+        for linea in lineas_modificadas:
+            f_out.write(linea + '\n')
+
+def procesar_directorio(directorio):
+    for archivo in os.listdir(directorio):
+        if archivo.lower().endswith(".arff"):
+            ruta = os.path.join(directorio, archivo)
+            print(f"Procesando: {archivo}")
+            procesar_arff(ruta)
+
+# Uso:
+procesar_directorio(".")
+
 
 

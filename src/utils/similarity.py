@@ -36,3 +36,17 @@ def compute_cluster_similarity(cluster_labels, similarity_matrix):
                 cluster_sim[i, j] = np.mean(similarity_matrix[mask_i][:, mask_j])
 
     return cluster_sim
+
+def compute_fuzzy_cluster_similarity(membership_matrix, similarity_matrix):
+    num_clusters = membership_matrix.shape[1]
+    cluster_sim = np.zeros((num_clusters, num_clusters))
+
+    for i in range(num_clusters):
+        for j in range(num_clusters):
+            weights_i = membership_matrix[:, i]
+            weights_j = membership_matrix[:, j]
+            weighted_sim = similarity_matrix * np.outer(weights_i, weights_j)
+            denom = np.sum(weights_i[:, None] * weights_j[None, :])
+            cluster_sim[i, j] = np.sum(weighted_sim) / denom if denom > 0 else 0.0
+
+    return cluster_sim
